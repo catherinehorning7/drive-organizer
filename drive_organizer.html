@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drive Organizer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f8f7f4; color: #1a1a1a; min-height: 100vh; padding: 2rem; }
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+  .card { background: white; border-radius: 12px; border: 0.5px solid #e0ddd8; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
+  .step-num { width: 24px; height: 24px; background: #1a1a1a; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .step-num.done { background: #2d7d4e; }
+  code { background: #f1efe8; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+  input[type="text"] { width: 100%; padding: 10px 12px; border: 0.5px solid #ccc; border-radius: 8px; font-size: 0.9rem; margin-top: 0.5rem; }
+  input[type="text"]:focus { outline: none; border-color: #1a1a1a; }
+  button { padding: 10px 20px; border-radius: 8px; border: 0.5px solid #ccc; background: white; font-size: 0.9rem; cursor: pointer; transition: background 0.15s; }
+  button:hover { background: #f1efe8; }
+  button.primary { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+  button.primary:hover { background: #333; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 10px; margin-top: 1rem; flex-wrap: wrap; }
+  .log { background: #f8f7f4; border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.82rem; max-height: 280px; overflow-y: auto; line-height: 1.7; }
+  .log .ok { color: #2d7d4e; }
+  .log .err { color: #c0392b; }
+  .log .info { color: #666; }
+  .log .head { color: #1a1a1a; font-weight: 600; }
+  .plan-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.75rem; }
+  .plan-table th { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e0ddd8; color: #666; font-weight: 500; }
+  .plan-table td { padding: 6px 10px; border-bottom: 0.5px solid #f0ede8; vertical-align: top; }
+  .plan-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-gray { background: #f1efe8; color: #555; }
+  .progress-bar { height: 6px; background: #e0ddd8; border-radius: 3px; margin-top: 0.5rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: #1a1a1a; border-radius: 3px; transition: width 0.3s; }
+  .hidden { display: none; }
+  ol { padding-left: 1.2rem; }
+  ol li { margin-bottom: 0.4rem; font-size: 0.88rem; line-height: 1.6; }
+  a { color: #1a1a1a; }
+  .warn { background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.875rem; margin-top: 0.75rem; }
+</style>
+</head>
+<body>
+
+<h1>Google Drive Organizer</h1>
+<p class="subtitle">Reads your Drive, classifies files by topic, creates folders, and moves everything automatically.</p>
+
+<!-- Step 1: Setup -->
+<div class="card" id="card-setup">
+  <h2><span class="step-num" id="num1">1</span> Google Cloud setup — one time only</h2>
+  <p style="font-size:0.88rem; color:#444; line-height:1.6; margin-bottom:0.75rem;">
+    This tool needs a free Google Cloud client ID to access your Drive. Takes about 5 minutes:
+  </p>
+  <ol>
+    <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com/apis/credentials</a></li>
+    <li>Create a project (or pick an existing one)</li>
+    <li>Click <strong>+ Create Credentials → OAuth client ID</strong></li>
+    <li>Application type: <strong>Web application</strong></li>
+    <li>Under "Authorized JavaScript origins", add: <code id="origin-display"></code></li>
+    <li>Click Create — copy the <strong>Client ID</strong> (ends in <code>.apps.googleusercontent.com</code>)</li>
+    <li>Also enable the <strong>Google Drive API</strong> at <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">this link</a></li>
+    <li>Under OAuth consent screen, add your own Google email as a test user</li>
+  </ol>
+  <div class="warn">The client ID is not a secret — it's safe to paste here. It only works from this exact page origin.</div>
+  <input type="text" id="client-id-input" placeholder="Paste your Client ID here (e.g. 123456789-abc.apps.googleusercontent.com)" />
+  <div class="btn-row">
+    <button class="primary" onclick="saveClientId()">Save & connect to Drive</button>
+  </div>
+</div>
+
+<!-- Step 2: Scan -->
+<div class="card hidden" id="card-scan">
+  <h2><span class="step-num" id="num2">2</span> Scan your Drive</h2>
+  <p style="font-size:0.88rem; color:#666; margin-bottom:0.75rem;">Connected as <strong id="user-email"></strong>. Click Scan to list all files in your Drive (up to 1000). No files are moved yet.</p>
+  <div class="btn-row">
+    <button class="primary" onclick="scanDrive()" id="btn-scan">Scan Drive files</button>
+    <button onclick="signOut()" style="color:#c0392b; border-color:#c0392b;">Sign out</button>
+  </div>
+  <div class="progress-bar hidden" id="scan-progress"><div class="progress-fill" id="scan-fill" style="width:0%"></div></div>
+  <div class="log hidden" id="scan-log"></div>
+</div>
+
+<!-- Step 3: Plan -->
+<div class="card hidden" id="card-plan">
+  <h2><span class="step-num" id="num3">3</span> Review organization plan</h2>
+  <p style="font-size:0.88rem; color:#666; margin-bottom:0.75rem;">AI has classified your files. Review the plan before anything is moved. Uncheck any file to skip it.</p>
+  <div id="plan-summary" style="margin-bottom:1rem; font-size:0.88rem; color:#444;"></div>
+  <div style="overflow-x:auto;">
+    <table class="plan-table" id="plan-table">
+      <thead><tr><th style="width:32px;"></th><th>File name</th><th>Current location</th><th>Proposed folder</th></tr></thead>
+      <tbody id="plan-body"></tbody>
+    </table>
+  </div>
+  <div class="btn-row" style="margin-top:1.25rem;">
+    <button class="primary" onclick="executePlan()" id="btn-execute">Move files now</button>
+    <button onclick="rescan()">Re-scan</button>
+  </div>
+</div>
+
+<!-- Step 4: Execute -->
+<div class="card hidden" id="card-execute">
+  <h2><span class="step-num" id="num4">4</span> Moving files</h2>
+  <div class="progress-bar" style="margin-bottom:0.75rem;"><div class="progress-fill" id="exec-fill" style="width:0%"></div></div>
+  <div class="log" id="exec-log"></div>
+  <div class="btn-row hidden" id="exec-done-row">
+    <button class="primary" onclick="location.reload()">Start over</button>
+  </div>
+</div>
+
+<script>
+const SCOPES = 'https://www.googleapis.com/auth/drive';
+const CATEGORY_COLORS = {
+  'Schedules & Planning': 'badge-blue',
+  'Health & Diet': 'badge-green',
+  'Business': 'badge-amber',
+  'Financial': 'badge-purple',
+  'Family & Personal': 'badge-red',
+  'Reference & Notes': 'badge-gray',
+  'Uncategorized': 'badge-gray'
+};
+
+let tokenClient, accessToken, allFiles = [], plan = [];
+
+document.getElementById('origin-display').textContent = location.origin;
+
+function saveClientId() {
+  const id = document.getElementById('client-id-input').value.trim();
+  if (!id) { alert('Please paste your Client ID first.'); return; }
+  localStorage.setItem('drive_organizer_client_id', id);
+  loadGapi(id);
+}
+
+function loadGapi(clientId) {
+  const s1 = document.createElement('script');
+  s1.src = 'https://accounts.google.com/gsi/client';
+  s1.onload = () => initGsi(clientId);
+  document.head.appendChild(s1);
+  const s2 = document.createElement('script');
+  s2.src = 'https://apis.google.com/js/api.js';
+  s2.onload = () => gapi.load('client', initGapiClient);
+  document.head.appendChild(s2);
+}
+
+function initGapiClient() {
+  gapi.client.init({}).then(() => {
+    gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+  });
+}
+
+function initGsi(clientId) {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { alert('Auth error: ' + resp.error); return; }
+      accessToken = resp.access_token;
+      fetchUserInfo();
+    }
+  });
+  tokenClient.requestAccessToken();
+}
+
+function fetchUserInfo() {
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  }).then(r => r.json()).then(info => {
+    document.getElementById('user-email').textContent = info.email || 'your account';
+    document.getElementById('card-setup').classList.add('hidden');
+    document.getElementById('card-scan').classList.remove('hidden');
+    document.getElementById('num1').classList.add('done');
+  });
+}
+
+function signOut() {
+  google.accounts.oauth2.revoke(accessToken, () => location.reload());
+}
+
+function appendLog(logId, msg, cls='info') {
+  const log = document.getElementById(logId);
+  log.classList.remove('hidden');
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function scanDrive() {
+  document.getElementById('btn-scan').disabled = true;
+  document.getElementById('scan-progress').classList.remove('hidden');
+  appendLog('scan-log', 'Fetching file list from Google Drive...', 'head');
+  allFiles = [];
+  let pageToken = null;
+  let fetched = 0;
+  const fields = 'nextPageToken,files(id,name,mimeType,parents,trashed)';
+  try {
+    do {
+      let url = `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=${encodeURIComponent(fields)}&q=trashed=false and 'me' in owners`;
+      if (pageToken) url += '&pageToken=' + pageToken;
+      const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error.message);
+      const files = (data.files || []).filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+      allFiles = allFiles.concat(files);
+      fetched += files.length;
+      pageToken = data.nextPageToken || null;
+      const pct = Math.min(90, Math.round(fetched / 10));
+      document.getElementById('scan-fill').style.width = pct + '%';
+      appendLog('scan-log', `Retrieved ${fetched} files so far...`, 'info');
+    } while (pageToken && allFiles.length < 1000);
+    document.getElementById('scan-fill').style.width = '100%';
+    appendLog('scan-log', `Done. Found ${allFiles.length} files. Classifying with AI...`, 'ok');
+    await classifyFiles();
+  } catch(e) {
+    appendLog('scan-log', 'Error: ' + e.message, 'err');
+    document.getElementById('btn-scan').disabled = false;
+  }
+}
+
+async function classifyFiles() {
+  const names = allFiles.map((f, i) => `${i}: ${f.name}`).join('\n');
+  const prompt = `You are organizing Google Drive files into folders. Given these file names (with index), assign each to exactly one folder category.
+
+Available categories: Schedules & Planning, Health & Diet, Business, Financial, Family & Personal, Reference & Notes, Uncategorized
+
+Rules:
+- Schedules & Planning: calendars, planners, schedules, routines, timelines, agendas, daily plans
+- Health & Diet: food logs, meal plans, nutrition, medical, supplements, exercise, wellness
+- Business: LLC docs, contracts, invoices, clients, products, operations, marketing, team
+- Financial: budgets, bank statements, taxes, expenses, income, receipts, accounting
+- Family & Personal: family records, kids, pets, household, personal notes, memories
+- Reference & Notes: general reference, how-tos, research, templates, misc notes
+
+Return ONLY a JSON array, no markdown, no explanation. Each element: {"index": N, "folder": "Category Name"}
+
+Files:
+${names}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content[0].text.trim().replace(/```json|```/g, '').trim();
+    const classifications = JSON.parse(raw);
+    buildPlan(classifications);
+  } catch(e) {
+    appendLog('scan-log', 'Classification error: ' + e.message, 'err');
+  }
+}
+
+function buildPlan(classifications) {
+  plan = classifications.map(c => {
+    const file = allFiles[c.index];
+    if (!file) return null;
+    return { file, folder: c.folder, include: true };
+  }).filter(Boolean);
+
+  document.getElementById('card-scan').classList.add('hidden');
+  document.getElementById('num2').classList.add('done');
+  document.getElementById('card-plan').classList.remove('hidden');
+
+  const folderCounts = {};
+  plan.forEach(p => { folderCounts[p.folder] = (folderCounts[p.folder] || 0) + 1; });
+  const summary = Object.entries(folderCounts).map(([f, n]) => `${f}: ${n}`).join(' · ');
+  document.getElementById('plan-summary').textContent = `${plan.length} files → ${Object.keys(folderCounts).length} folders   |   ${summary}`;
+
+  const tbody = document.getElementById('plan-body');
+  tbody.innerHTML = '';
+  plan.forEach((p, i) => {
+    const badgeClass = CATEGORY_COLORS[p.folder] || 'badge-gray';
+    const parentNote = p.file.parents ? '' : '<span style="color:#aaa">root</span>';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" checked onchange="plan[${i}].include = this.checked" /></td>
+      <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(p.file.name)}">${escHtml(p.file.name)}</td>
+      <td>${parentNote}</td>
+      <td><span class="badge ${badgeClass}">${escHtml(p.folder)}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function executePlan() {
+  document.getElementById('btn-execute').disabled = true;
+  document.getElementById('card-plan').classList.add('hidden');
+  document.getElementById('num3').classList.add('done');
+  document.getElementById('card-execute').classList.remove('hidden');
+
+  const selected = plan.filter(p => p.include);
+  appendLog('exec-log', `Starting: ${selected.length} files to move.`, 'head');
+
+  const folderIds = {};
+  const uniqueFolders = [...new Set(selected.map(p => p.folder))];
+  appendLog('exec-log', `Creating ${uniqueFolders.length} folders...`, 'info');
+
+  for (const folderName of uniqueFolders) {
+    try {
+      const searchResp = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id,name)`,
+        { headers: { Authorization: 'Bearer ' + accessToken } }
+      );
+      const searchData = await searchResp.json();
+      if (searchData.files && searchData.files.length > 0) {
+        folderIds[folderName] = searchData.files[0].id;
+        appendLog('exec-log', `  Folder exists: "${folderName}"`, 'info');
+      } else {
+        const createResp = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' })
+        });
+        const created = await createResp.json();
+        folderIds[folderName] = created.id;
+        appendLog('exec-log', `  Created folder: "${folderName}"`, 'ok');
+      }
+    } catch(e) {
+      appendLog('exec-log', `  Error creating "${folderName}": ${e.message}`, 'err');
+    }
+  }
+
+  let moved = 0, failed = 0;
+  for (let i = 0; i < selected.length; i++) {
+    const { file, folder } = selected[i];
+    const folderId = folderIds[folder];
+    if (!folderId) { failed++; continue; }
+    try {
+      const currentParents = file.parents ? file.parents.join(',') : '';
+      let url = `https://www.googleapis.com/drive/v3/files/${file.id}?addParents=${folderId}&fields=id,parents`;
+      if (currentParents) url += `&removeParents=${currentParents}`;
+      const resp = await fetch(url, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!resp.ok) throw new Error((await resp.json()).error?.message || resp.status);
+      moved++;
+      appendLog('exec-log', `  Moved: ${file.name} → ${folder}`, 'ok');
+    } catch(e) {
+      failed++;
+      appendLog('exec-log', `  Failed: ${file.name} — ${e.message}`, 'err');
+    }
+    document.getElementById('exec-fill').style.width = Math.round(((i + 1) / selected.length) * 100) + '%';
+  }
+
+  appendLog('exec-log', `Done. ${moved} moved, ${failed} failed.`, 'head');
+  document.getElementById('num4').classList.add('done');
+  document.getElementById('exec-done-row').classList.remove('hidden');
+}
+
+function rescan() {
+  document.getElementById('card-plan').classList.add('hidden');
+  document.getElementById('card-scan').classList.remove('hidden');
+  document.getElementById('btn-scan').disabled = false;
+  document.getElementById('scan-log').innerHTML = '';
+  document.getElementById('scan-fill').style.width = '0%';
+}
+
+const savedId = localStorage.getItem('drive_organizer_client_id');
+if (savedId) {
+  document.getElementById('client-id-input').value = savedId;
+}
+</script>
+</body>
+</html>
