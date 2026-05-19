@@ -217,49 +217,37 @@ async function scanDrive() {
     } while (pageToken && allFiles.length < 1000);
     document.getElementById('scan-fill').style.width = '100%';
     appendLog('scan-log', `Done. Found ${allFiles.length} files. Classifying with AI...`, 'ok');
-    await classifyFiles();
+    classifyFiles();
   } catch(e) {
     appendLog('scan-log', 'Error: ' + e.message, 'err');
     document.getElementById('btn-scan').disabled = false;
   }
 }
 
-async function classifyFiles() {
-  const names = allFiles.map((f, i) => `${i}: ${f.name}`).join('\n');
-  const prompt = `You are organizing Google Drive files into folders. Given these file names (with index), assign each to exactly one folder category.
+function classifyFiles() {
+  const RULES = [
+    { folder: 'Schedules & Planning', patterns: [/schedul/i,/planner/i,/calendar/i,/agenda/i,/routine/i,/timeline/i,/daily plan/i,/weekly/i,/timetable/i,/itinerary/i,/block/i,/roster/i,/rota\b/i] },
+    { folder: 'Health & Diet', patterns: [/health/i,/diet/i,/food log/i,/meal/i,/nutrition/i,/calorie/i,/supplement/i,/vitamin/i,/medical/i,/doctor/i,/rx\b/i,/prescription/i,/exercise/i,/workout/i,/fitness/i,/wellness/i,/weight/i,/macro/i,/protein/i,/carb/i,/glucose/i,/lab result/i,/blood/i] },
+    { folder: 'Business', patterns: [/LLC/i,/contract/i,/invoice/i,/client/i,/proposal/i,/marketing/i,/product/i,/operations/i,/vendor/i,/supplier/i,/business/i,/company/i,/team/i,/employee/i,/hire/i,/onboard/i,/policy/i,/sop\b/i,/procedure/i,/project/i,/scope/i,/deliverable/i,/meeting notes/i,/minutes/i] },
+    { folder: 'Financial', patterns: [/budget/i,/finance/i,/financial/i,/tax/i,/expense/i,/income/i,/receipt/i,/bank/i,/statement/i,/account/i,/invoice/i,/payment/i,/payroll/i,/ledger/i,/1099/i,/w-?2/i,/k-?1/i,/1065/i,/profit/i,/loss/i,/p&l/i,/cash flow/i,/balance sheet/i,/spend/i,/saving/i,/loan/i,/debt/i,/credit/i,/qube/i,/goodbudget/i,/envelope/i] },
+    { folder: 'Family & Personal', patterns: [/family/i,/personal/i,/kid/i,/child/i,/daughter/i,/son/i,/pet/i,/mouse/i,/mice/i,/household/i,/home/i,/memory/i,/memories/i,/journal/i,/diary/i,/letter/i,/photo/i,/holiday/i,/birthday/i,/christmas/i,/prayer/i,/faith/i,/church/i,/catholic/i,/saint/i,/liturgy/i,/lent/i,/advent/i] },
+    { folder: 'Reference & Notes', patterns: [/note/i,/reference/i,/template/i,/research/i,/how.?to/i,/guide/i,/resource/i,/info/i,/list/i,/draft/i,/misc/i,/general/i,/read/i,/article/i,/summary/i] }
+  ];
 
-Available categories: Schedules & Planning, Health & Diet, Business, Financial, Family & Personal, Reference & Notes, Uncategorized
+  appendLog('scan-log', 'Classifying files by name...', 'info');
+  const classifications = allFiles.map((f, i) => {
+    const name = f.name;
+    for (const rule of RULES) {
+      if (rule.patterns.some(p => p.test(name))) {
+        return { index: i, folder: rule.folder };
+      }
+    }
+    return { index: i, folder: 'Uncategorized' };
+  });
 
-Rules:
-- Schedules & Planning: calendars, planners, schedules, routines, timelines, agendas, daily plans
-- Health & Diet: food logs, meal plans, nutrition, medical, supplements, exercise, wellness
-- Business: LLC docs, contracts, invoices, clients, products, operations, marketing, team
-- Financial: budgets, bank statements, taxes, expenses, income, receipts, accounting
-- Family & Personal: family records, kids, pets, household, personal notes, memories
-- Reference & Notes: general reference, how-tos, research, templates, misc notes
-
-Return ONLY a JSON array, no markdown, no explanation. Each element: {"index": N, "folder": "Category Name"}
-
-Files:
-${names}`;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await resp.json();
-    const raw = data.content[0].text.trim().replace(/```json|```/g, '').trim();
-    const classifications = JSON.parse(raw);
-    buildPlan(classifications);
-  } catch(e) {
-    appendLog('scan-log', 'Classification error: ' + e.message, 'err');
-  }
+  const uncategorized = classifications.filter(c => c.folder === 'Uncategorized').length;
+  appendLog('scan-log', `Classification complete. ${classifications.length - uncategorized} files matched, ${uncategorized} uncategorized.`, 'ok');
+  buildPlan(classifications);
 }
 
 function buildPlan(classifications) {
