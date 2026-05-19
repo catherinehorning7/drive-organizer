@@ -117,12 +117,24 @@
 <script>
 const SCOPES = 'https://www.googleapis.com/auth/drive';
 const CATEGORY_COLORS = {
-  'Schedules & Planning': 'badge-blue',
-  'Health & Diet': 'badge-green',
+  'Chris': 'badge-red',
+  'Health': 'badge-green',
+  'Food': 'badge-green',
+  'Family': 'badge-red',
   'Business': 'badge-amber',
   'Financial': 'badge-purple',
-  'Family & Personal': 'badge-red',
-  'Reference & Notes': 'badge-gray',
+  'Schedules': 'badge-blue',
+  'Planning': 'badge-blue',
+  'Tasks': 'badge-blue',
+  'Habits': 'badge-blue',
+  'Home': 'badge-amber',
+  'Animals': 'badge-green',
+  'School': 'badge-purple',
+  'Spirituality': 'badge-purple',
+  'Personal': 'badge-gray',
+  'AI': 'badge-blue',
+  'Templates': 'badge-gray',
+  'Screenshots': 'badge-gray',
   'Uncategorized': 'badge-gray'
 };
 
@@ -226,12 +238,24 @@ async function scanDrive() {
 
 function classifyFiles() {
   const RULES = [
-    { folder: 'Schedules & Planning', patterns: [/schedul/i,/planner/i,/calendar/i,/agenda/i,/routine/i,/timeline/i,/daily plan/i,/weekly/i,/timetable/i,/itinerary/i,/block/i,/roster/i,/rota\b/i] },
-    { folder: 'Health & Diet', patterns: [/health/i,/diet/i,/food log/i,/meal/i,/nutrition/i,/calorie/i,/supplement/i,/vitamin/i,/medical/i,/doctor/i,/rx\b/i,/prescription/i,/exercise/i,/workout/i,/fitness/i,/wellness/i,/weight/i,/macro/i,/protein/i,/carb/i,/glucose/i,/lab result/i,/blood/i] },
-    { folder: 'Business', patterns: [/LLC/i,/contract/i,/invoice/i,/client/i,/proposal/i,/marketing/i,/product/i,/operations/i,/vendor/i,/supplier/i,/business/i,/company/i,/team/i,/employee/i,/hire/i,/onboard/i,/policy/i,/sop\b/i,/procedure/i,/project/i,/scope/i,/deliverable/i,/meeting notes/i,/minutes/i] },
-    { folder: 'Financial', patterns: [/budget/i,/finance/i,/financial/i,/tax/i,/expense/i,/income/i,/receipt/i,/bank/i,/statement/i,/account/i,/invoice/i,/payment/i,/payroll/i,/ledger/i,/1099/i,/w-?2/i,/k-?1/i,/1065/i,/profit/i,/loss/i,/p&l/i,/cash flow/i,/balance sheet/i,/spend/i,/saving/i,/loan/i,/debt/i,/credit/i,/qube/i,/goodbudget/i,/envelope/i] },
-    { folder: 'Family & Personal', patterns: [/family/i,/personal/i,/kid/i,/child/i,/daughter/i,/son/i,/pet/i,/mouse/i,/mice/i,/household/i,/home/i,/memory/i,/memories/i,/journal/i,/diary/i,/letter/i,/photo/i,/holiday/i,/birthday/i,/christmas/i,/prayer/i,/faith/i,/church/i,/catholic/i,/saint/i,/liturgy/i,/lent/i,/advent/i] },
-    { folder: 'Reference & Notes', patterns: [/note/i,/reference/i,/template/i,/research/i,/how.?to/i,/guide/i,/resource/i,/info/i,/list/i,/draft/i,/misc/i,/general/i,/read/i,/article/i,/summary/i] }
+    { folder: 'Chris', patterns: [/\bchris\b/i,/\bFOC\b/,/friend.of.the.court/i,/divorce/i,/parallel.parent/i,/court.order/i,/custody/i,/\baudio\b/i,/recording/i,/documentation/i] },
+    { folder: 'Health', patterns: [/\bME\b/,/MECFS/i,/ME\/CFS/i,/chronic.fatigue/i,/\bhealth\b/i,/\bprotocol\b/i,/MyUofMHealth/i,/mitochondri/i,/\bmedical\b/i,/\bdisability\b/i,/FUNCAPP/i,/\bexercises?\b/i,/supplement/i,/symptom/i,/diagnos/i,/treatment/i,/appointment/i,/\bdoctors?\b/i,/\bDr\b/,/prescription/i,/\brx\b/i,/wellness/i,/fatigue/i] },
+    { folder: 'Food', patterns: [/\bfood\b/i,/\bdiet\b/i,/\bmenu\b/i,/\bmeal/i,/recipe/i,/nutrition/i,/calorie/i,/grocery/i,/ingredient/i] },
+    { folder: 'Family', patterns: [/\bBecca\b/i,/\bSean\b/i,/\bGemma\b/i,/\bJosh\b/i,/\bMicaila\b/i,/\bMargi?e?\b/i,/\bMargy\b/i,/\bMargaret\b/i,/\bBen\b/i,/\bBenjamin\b/i,/\bfamily\b/i,/\bkids?\b/i,/\bchildren\b/i] },
+    { folder: 'Business', patterns: [/Pure.Simplicity/i,/\bPS\b/,/\bclients?\b/i,/\brevenue\b/i,/\bcleaning\b/i,/\bcleaner\b/i,/profit.loss/i,/\bcontractor\b/i,/\bWave\b/i,/\bkeys\b/i,/authorization/i,/\bbusiness\b/i,/\bEIN\b/i,/\bmileage\b/i,/consultation/i,/\bOC\s*-/i,/invoice/i,/\bLLC\b/i,/contract/i,/pricing/i,/\bprofit/i] },
+    { folder: 'Financial', patterns: [/\bbudget\b/i,/\bmoney\b/i,/\btax\b/i,/\btaxes\b/i,/\bincome\b/i,/\bexpense/i,/receipt/i,/\bbank\b/i,/financial/i,/\bspend/i,/saving/i,/\bloan\b/i,/\bdebt\b/i,/\bcredit\b/i,/goodbudget/i,/\bqube\b/i,/envelope/i,/ledger/i,/payroll/i,/1099/i,/w-?2\b/i,/k-?1\b/i] },
+    { folder: 'Schedules', patterns: [/schedul/i,/calendar/i,/\bdaily\b/i,/\bday\b/i,/\bmonthly?\b/i,/\bweekly?\b/i,/\brule\b/i,/Tame.Your.Time/i,/timetable/i,/agenda/i,/routine/i,/itinerary/i] },
+    { folder: 'Planning', patterns: [/\bplan(ning)?\b/i,/\bgoal/i,/\bstrateg/i,/\bvision\b/i,/roadmap/i,/milestone/i] },
+    { folder: 'Tasks', patterns: [/\btasks?\b/i,/\btodo\b/i,/to.do/i,/checklist/i,/action.item/i] },
+    { folder: 'Habits', patterns: [/\bhabit/i,/\btracker\b/i,/\btracking\b/i,/streak/i] },
+    { folder: 'Home', patterns: [/\bhome\b/i,/organiz/i,/\bchores?\b/i,/enforcement/i,/household/i,/\brent\b/i,/\bmortgage\b/i,/landlord/i,/utilities/i] },
+    { folder: 'Animals', patterns: [/\bpets?\b/i,/\banimals?\b/i,/\bcats?\b/i,/\bmouse\b/i,/\bmice\b/i,/\bcages?\b/i,/\bXtra\b/i,/\bvet\b/i,/\bfeeding\b/i] },
+    { folder: 'School', patterns: [/\bschools?\b/i,/transcript/i,/\bparents?\b/i,/\bgrades?\b/i,/\bclass\b/i,/homework/i,/\bIEP\b/i,/semester/i] },
+    { folder: 'Spirituality', patterns: [/\bpray(er)?\b/i,/spiritual/i,/\bfaith\b/i,/\bchurch\b/i,/catholic/i,/\bsaint\b/i,/liturgy/i,/\blent\b/i,/\badvent\b/i,/novena/i,/rosary/i,/\bmass\b/i] },
+    { folder: 'Personal', patterns: [/\bprofile\b/i,/\bpersonal\b/i,/functioning/i,/\bjoy\b/i,/\bdecisions?\b/i,/\bloves?\b/i,/\bbashar\b/i,/\bjournal\b/i,/\bdiary\b/i,/\bnotes?\b/i] },
+    { folder: 'AI', patterns: [/\bClaude\b/i,/\bGPT\b/i,/\bChatGPT\b/i,/\bAI\b/,/\bprompt\b/i,/\bartifact\b/i,/anthropic/i] },
+    { folder: 'Templates', patterns: [/template/i,/\bform\b/i,/\bblank\b/i,/boilerplate/i] },
+    { folder: 'Screenshots', patterns: [/screenshot/i,/\bscreen.?shot\b/i,/\bSS\b/,/\bsnip\b/i,/capture/i] }
   ];
 
   appendLog('scan-log', 'Classifying files by name...', 'info');
@@ -358,10 +382,8 @@ function rescan() {
   document.getElementById('scan-fill').style.width = '0%';
 }
 
-const savedId = localStorage.getItem('drive_organizer_client_id');
-if (savedId) {
-  document.getElementById('client-id-input').value = savedId;
-}
+const savedId = localStorage.getItem('drive_organizer_client_id') || '1042172817677-quek5qf0b742orvctj4udqmonaul4851.apps.googleusercontent.com';
+document.getElementById('client-id-input').value = savedId;
 </script>
 </body>
 </html>
